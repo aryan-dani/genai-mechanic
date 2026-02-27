@@ -1,0 +1,71 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ========================
+# Virtual Environments
+# ========================
+venv/
+venv2/
+.venv/
+env/
+ENV/
+
+# ========================
+# Environment Variables
+# ========================
+.env
+.env.local
+.env.production
+
+# ========================
+# IDE / Editor
+# ========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# ========================
+# OS Files
+# ========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ========================
+# Data & Models (large files)
+# ========================
+data/chroma_db/
+data/diagnostics.db
+data/logs/
+data/uploaded_images/
+models/*.pkl
+models/*.json
+
+# ========================
+# Streamlit
+# ========================
+.streamlit/secrets.toml
+
+# ========================
+# Logs
+# ========================
+*.log
+logs/
+
+# ========================
+# Misc
+# ========================
+.gemini/
