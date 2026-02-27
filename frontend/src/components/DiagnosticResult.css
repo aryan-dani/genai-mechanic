@@ -1,0 +1,220 @@
+.diagnostic-result {
+    padding: 24px;
+    color: var(--text-main);
+    margin-top: 10px;
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.result-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-main);
+}
+
+.duration-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: var(--bg-dark);
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+
+.confidence-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.confidence-card {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+}
+
+.conf-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.conf-value {
+    font-size: 1.5rem;
+    font-weight: 900;
+}
+
+.final-verdict {
+    background: rgba(59, 130, 246, 0.05);
+    border-left: 4px solid var(--primary);
+    padding: 16px 20px;
+    border-radius: 0 8px 8px 0;
+    margin-bottom: 24px;
+}
+
+.final-verdict h4 {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--primary);
+    margin-bottom: 8px;
+}
+
+.final-verdict p {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.safety-alert {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    color: #FCA5A5;
+}
+
+.safety-alert strong {
+    color: var(--danger);
+    display: block;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+}
+
+.action-plan {
+    margin-bottom: 24px;
+}
+
+.action-plan h4 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    color: var(--text-main);
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.step-item {
+    display: flex;
+    gap: 16px;
+    background: var(--bg-dark);
+    padding: 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+.step-number {
+    background: var(--primary);
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-content p {
+    margin: 0;
+}
+
+.step-content strong {
+    color: var(--text-main);
+}
+
+.evidence-accordion {
+    margin-bottom: 24px;
+}
+
+.accordion-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--bg-dark);
+    overflow: hidden;
+}
+
+.accordion-header {
+    padding: 14px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    background: var(--bg-card);
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.accordion-header span {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.accordion-header:hover {
+    background: var(--bg-card-hover);
+}
+
+.accordion-content {
+    padding: 16px;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+    background: var(--bg-dark);
+}
+
+.result-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+    .confidence-row {
+        grid-template-columns: 1fr;
+    }
+}

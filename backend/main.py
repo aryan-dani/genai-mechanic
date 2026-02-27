@@ -19,7 +19,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # --- 3. IMPORT AGENT ---
 try:
-    from src.agents.advisor import build_advisor_agent
+    from src.agents.advisor import agent_executor
 except ImportError as e:
     print("\nCRITICAL ERROR: Could not import the agent.")
     print(f"Details: {e}")
@@ -41,7 +41,8 @@ def main():
 
     print("Initializing Vehicle Diagnostic Agent...")
     try:
-        agent_executor = build_advisor_agent()
+        # The agent executor is already initialized upon import
+        pass
     except Exception as e:
         print(f"\nFailed to build agent: {e}")
         return

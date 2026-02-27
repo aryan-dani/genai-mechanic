@@ -17,6 +17,7 @@ vstore = AstraDBVectorStore(
     collection_name=COLLECTION_NAME,
     api_endpoint=os.getenv("ASTRA_DB_API_ENDPOINT"),
     token=os.getenv("ASTRA_DB_APPLICATION_TOKEN"),
+    setup_mode=2  # 2 corresponds to SetupMode.OFF in langchain_astradb
 )
 
 @tool

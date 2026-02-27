@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+langchain
+langchain-google-genai
+langgraph
+python-dotenv
+google-genai
+pypdf
+chromadb
+faiss-cpu
+langchain-community
+langchain-tavily
+langchain-astradb
+xgboost
+joblib
