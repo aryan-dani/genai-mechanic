@@ -22,7 +22,10 @@
 .workflow-path {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    /* Room for scrollbar */
     gap: 8px;
 }
 

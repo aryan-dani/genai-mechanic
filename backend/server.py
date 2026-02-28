@@ -206,8 +206,8 @@ async def run_diagnostic(req: Request):
             # Yield initial start event
             yield f"data: {json.dumps({'type': 'status', 'node': 'START', 'message': 'Agent Initialized'})}\n\n"
             
-            # Using async streaming for langgraph
-            async for output in langgraph_app.astream({"messages": [HumanMessage(content=full_input)]}):
+            # Using async streaming for langgraph with a safety limit
+            async for output in langgraph_app.astream({"messages": [HumanMessage(content=full_input)]}, {"recursion_limit": 25}):
                 for node_name, state_update in output.items():
                     # Yield the node step to the frontend
                     yield f"data: {json.dumps({'type': 'step', 'node': node_name, 'message': f'Executing {node_name.upper()}...'})}\n\n"

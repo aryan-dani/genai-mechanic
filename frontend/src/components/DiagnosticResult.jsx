@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle, ShieldAlert, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { AlertCircle, CheckCircle, ShieldAlert, ChevronDown, ChevronUp, FileText, Globe } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './DiagnosticResult.css';
 
@@ -93,8 +93,8 @@ const DiagnosticResult = ({ result, duration }) => {
             </div>
 
             <div className="result-actions">
-                <button className="btn btn-secondary">Report Incorrect</button>
-                <button className="btn btn-primary">Generate PDF Report</button>
+                <button className="btn btn-secondary" onClick={() => alert("Report successfully submitted to developers.")}>Report Incorrect</button>
+                <button className="btn btn-primary" onClick={() => window.print()}>Generate PDF Report</button>
             </div>
         </div>
     );

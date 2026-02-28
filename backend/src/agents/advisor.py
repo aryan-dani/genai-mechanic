@@ -175,7 +175,13 @@ llm_with_tools = llm.bind_tools(tools)
 def diagnostic_reasoner(state: AgentState):
     TerminalLogger.header("Agent Reasoning")
     
-    agent_template = f"""You are a Master Diagnostic AI. Format response ONLY as JSON:
+    agent_template = f"""You are a Master Diagnostic AI. You have access to tools that can predict root causes (predict_root_cause), search manuals (vehicle_diagnostic_db), and search the web (vehicle_web_search).
+    
+    CRITICAL INSTRUCTIONS:
+    1. If a tool returns an error (like "No module named X", "XGBoost Error", or any failure), DO NOT KEEP CALLING IT. 
+    2. If predict_root_cause fails, immediately fallback to your vehicle_diagnostic_db or vehicle_web_search tools or your own knowledge.
+    3. You must eventually output a final answer wrapped in the exact JSON schema requested below.
+    4. Format your final response ONLY as JSON:
     {parser.get_format_instructions()}"""
     
     messages = [SystemMessage(content=agent_template)] + state.messages
@@ -221,7 +227,7 @@ class LegacyAgentExecutorWrapper:
         TerminalLogger.header("New Session Initiated")
         TerminalLogger.info("Input", inputs.get("input")[:100] + "...")
         
-        result = langgraph_app.invoke({"messages": [HumanMessage(content=inputs.get("input", ""))]})
+        result = langgraph_app.invoke({"messages": [HumanMessage(content=inputs.get("input", ""))]}, {"recursion_limit": 25})
         
         final_content = result["messages"][-1].content
         TerminalLogger.header("Final Agent Verdict")

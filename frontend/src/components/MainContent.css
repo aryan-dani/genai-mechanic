@@ -7,31 +7,38 @@
 }
 
 .top-nav {
-    height: 64px;
-    padding: 0 24px;
+    height: 70px;
+    padding: 0 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--border);
-    background: var(--bg-card);
+    background: rgba(20, 20, 22, 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 5;
 }
 
 .page-title {
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     gap: 12px;
+    letter-spacing: -0.5px;
+    color: var(--text-main);
 }
 
 .badge {
-    font-size: 0.65rem;
-    background: rgba(59, 130, 246, 0.2);
+    font-size: 0.7rem;
+    background: rgba(99, 102, 241, 0.15);
     color: var(--primary);
-    padding: 2px 8px;
-    border-radius: 12px;
+    padding: 4px 10px;
+    border-radius: 16px;
     text-transform: uppercase;
     letter-spacing: 1px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    font-weight: 700;
 }
 
 .connection-status {
