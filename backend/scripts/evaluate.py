@@ -43,83 +43,101 @@
 
 
 
-import time
+# scripts/evaluate.py
 import sys
 import os
 import json
+import time
+from dotenv import load_dotenv
 
-# Add the project root to path so we can import 'src'
+# Add the project root to path so we can import from src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Import the Agent
-try:
-    from src.agents.advisor import agent_executor
-except ImportError:
-    print("❌ Error: Could not import 'agent_executor' from src.agents.advisor")
-    print("   Make sure you added 'agent_executor = build_advisor()' at the bottom of advisor.py")
-    sys.exit(1)
+from langchain_google_genai import ChatGoogleGenerativeAI
+from src.agents.advisor import agent_executor
 
-# --- TEST CASES (Mixed Scenarios) ---
+load_dotenv()
+
+# 1. Setup the "Judge" LLM
+# We use a strict temperature (0.0) so the grading is consistent
+evaluator_llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.0
+)
+
+# 2. Define Test Cases (Ground Truth)
 test_cases = [
     {
         "id": 1,
         "query": "My 2018 Ford F-150 has a flashing check engine light and shakes at idle.",
-        "expected_keywords": ["misfire", "coil", "plug", "injector", "vct", "solenoid"],
-        "min_score": 7
+        "expected_code": "P0300",
+        "expected_cause": "Misfire",
+        "critical_info": "Catalytic converter damage risk"
     },
     {
         "id": 2,
         "query": "Code P0133 on a 2015 Chevy Silverado.",
-        "expected_keywords": ["oxygen", "sensor", "o2", "slow response", "exhaust", "leak"],
-        "min_score": 8
+        "expected_code": "P0133",
+        "expected_cause": "O2 Sensor Slow Response",
+        "critical_info": "Check for exhaust leaks"
     },
     {
         "id": 3,
         "query": "Mahindra XUV500 losing power and black smoke from exhaust.",
-        "expected_keywords": ["turbo", "intercooler", "egr", "injector", "air filter", "boost"],
-        "min_score": 6
+        "expected_code": "P0299",
+        "expected_cause": "Turbocharger/Boost Leak",
+        "critical_info": "Intercooler hose"
     }
 ]
 
-def grade_response(query, output, keywords):
+def grade_response(query, agent_response, expected):
     """
-    A simple keyword-based grader to save API calls.
-    Returns a score (0-10) and a reason.
+    Uses Gemini to grade the Agent's response against the expected ground truth.
     """
-    output_lower = output.lower()
+    grading_prompt = f"""
+    You are a Senior Technical Instructor grading a student mechanic's diagnosis.
     
-    # 1. Check for Error Messages
-    if "error" in output_lower or "quota" in output_lower or "limit" in output_lower:
-        return {"score": 0, "reason": "API Error or Rate Limit hit."}
+    ### SCENARIO:
+    User Query: "{query}"
     
-    # 2. Check for Keyword Matches
-    matches = [kw for kw in keywords if kw in output_lower]
-    match_count = len(matches)
+    ### STUDENT ANSWER (Agent Output):
+    "{agent_response}"
     
-    # 3. Calculate Score
-    # Base score for replying: 5
-    # +1.5 for each keyword match (capped at 10)
-    score = min(10, 5 + (match_count * 1.5))
+    ### EXPECTED FACTS (Ground Truth):
+    - Likely Code: {expected['expected_code']}
+    - Root Cause: {expected['expected_cause']}
+    - Critical Info: {expected['critical_info']}
     
-    reason = f"Found {match_count} keywords: {matches}. "
-    if score >= 8:
-        reason += "Excellent diagnosis."
-    elif score >= 5:
-        reason += "Acceptable, but could be more specific."
-    else:
-        reason += "Poor relevance."
-        
-    return {"score": round(score, 1), "reason": reason}
+    ### YOUR TASK:
+    Grade the Student Answer on a scale of 0 to 10 based on:
+    1. **Accuracy (0-4)**: Did they identify the correct cause/code?
+    2. **Safety (0-3)**: Did they mention critical warnings (e.g., flashing light)?
+    3. **Clarity (0-3)**: Is the advice actionable?
+    
+    Return ONLY a valid JSON object like this:
+    {{
+        "score": 8,
+        "reason": "Correctly identified misfire but missed safety warning."
+    }}
+    """
+    
+    try:
+        result = evaluator_llm.invoke(grading_prompt)
+        # Clean up code blocks if Gemini returns markdown
+        clean_json = result.content.replace('```json', '').replace('```', '').strip()
+        return json.loads(clean_json)
+    except Exception as e:
+        return {"score": 0, "reason": f"Grading Error: {str(e)}"}
 
+# 3. Main Evaluation Loop
 def run_evaluation():
-    print(f"\n🚀 Starting Agent Evaluation on {len(test_cases)} cases...")
-    print("   (Adding 20s cooldown between tests to avoid Rate Limits)\n")
-    
-    results = []
+    print("🚀 Starting Agent Evaluation...\n")
     total_score = 0
-    
+    max_score = len(test_cases) * 10
+    results = []
+
     for test in test_cases:
-        print(f"🔹 Testing Case {test['id']}: {test['query']}")
+        print(f"Testing Case {test['id']}: {test['query']}")
         
         # A. Run the Agent
         try:
@@ -128,44 +146,35 @@ def run_evaluation():
             agent_output = response['output']
             latency = time.time() - start_time
         except Exception as e:
-            print(f"   ⚠️ Runtime Error: {e}")
-            agent_output = f"Critical Error: {str(e)}"
+            agent_output = f"Error: {str(e)}"
             latency = 0
 
         # B. Grade the Result
-        grade = grade_response(test['query'], agent_output, test['expected_keywords'])
+        grade = grade_response(test['query'], agent_output, test)
         
         # C. Print & Store
         print(f"   ⏱️  Latency: {latency:.2f}s")
         print(f"   📝 Grade: {grade['score']}/10")
-        print(f"   🤔 Reason: {grade['reason']}")
-        print("-" * 40)
+        print(f"   🤔 Reason: {grade['reason']}\n")
         
         total_score += grade['score']
         results.append({
             "id": test['id'],
-            "query": test['query'],
-            "output": agent_output,
             "score": grade['score'],
-            "latency": latency
+            "latency": latency,
+            "output": agent_output
         })
-
-        # --- RATE LIMIT COOLDOWN ---
-        if test['id'] < len(test_cases):
-            print("   💤 Cooling down for 20 seconds...")
-            time.sleep(20)
-        # ---------------------------
 
     # 4. Final Report
     avg_score = total_score / len(test_cases)
-    print("\n" + "="*40)
+    print("="*40)
     print(f"📊 FINAL REPORT")
     print(f"Total Cases: {len(test_cases)}")
     print(f"Average Score: {avg_score:.1f}/10")
     print("="*40)
-    
-    # Save to file
-    with open("evaluation_report.json", "w") as f:
+
+    # Save to file for your project report
+    with open('evaluation_report.json', 'w') as f:
         json.dump(results, f, indent=2)
     print("✅ Results saved to evaluation_report.json")
 

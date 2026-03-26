@@ -68,13 +68,13 @@ import os
 import json
 from dotenv import load_dotenv
 from langchain.tools import tool
-from langchain_tavily import TavilySearch
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Load API keys FIRST
 load_dotenv()
 
 # Initialize Tavily with limited results to prevent freezing
-tavily_tool = TavilySearch(max_results=3)
+tavily_tool = TavilySearchResults(max_results=3)
 
 @tool
 def vehicle_web_search(query: str) -> str:
@@ -84,13 +84,11 @@ def vehicle_web_search(query: str) -> str:
     """
     try:
         print(f"DEBUG: Searching Tavily for: {query}")
-        response = tavily_tool.invoke(query)
+        results = tavily_tool.run(query)
 
         # Handle case where results is already a string
-        if isinstance(response, str):
-            return response
-            
-        results = response.get("results", []) if isinstance(response, dict) else response
+        if isinstance(results, str):
+            return results
 
         # Truncate each result to prevent agent memory overload
         clean_results = []

@@ -209,6 +209,12 @@ async def run_diagnostic(req: Request):
             # Using async streaming for langgraph with a safety limit
             async for output in langgraph_app.astream({"messages": [HumanMessage(content=full_input)]}, {"recursion_limit": 25}):
                 for node_name, state_update in output.items():
+                    print(f"\n[BACKEND VISIBILITY] Node Executed: {node_name.upper()}", flush=True)
+                    if "messages" in state_update and state_update["messages"]:
+                        last_msg = state_update["messages"][-1]
+                        msg_preview = str(last_msg.content)[:200] + "..." if len(str(last_msg.content)) > 200 else str(last_msg.content)
+                        print(f"[BACKEND VISIBILITY] Response: {msg_preview}\n", flush=True)
+                        
                     # Yield the node step to the frontend
                     yield f"data: {json.dumps({'type': 'step', 'node': node_name, 'message': f'Executing {node_name.upper()}...'})}\n\n"
                     # Small delay to let frontend animate if needed, otherwise it's very fast
@@ -220,12 +226,23 @@ async def run_diagnostic(req: Request):
             # Once done, get final message and parse it
             if final_state and "messages" in final_state:
                 raw_content = final_state["messages"][-1].content
+                if isinstance(raw_content, list):
+                    raw_content = " ".join([m.get("text", "") if isinstance(m, dict) else str(m) for m in raw_content])
                 try:
-                    # Clean up json format marks
-                    clean_content = raw_content.replace("```json", "").replace("```", "").strip()
-                    validated = diagnostic_parser.parse(clean_content)
+                    import re
+                    # Safely extract JSON using regex in case of prepended text
+                    json_match = re.search(r'\{.*\}', raw_content, re.DOTALL)
+                    if json_match:
+                        clean_content = json_match.group(0)
+                    else:
+                        clean_content = raw_content.replace("```json", "").replace("```", "").strip()
                     
-                    # Construct structured data payload
+                    # Fix potential boolean capitalization issues or trailing commas before loading
+                    clean_content = re.sub(r'(?i)\bTrue\b', 'true', clean_content)
+                    clean_content = re.sub(r'(?i)\bFalse\b', 'false', clean_content)
+                    
+                    validated = diagnostic_parser.parse(clean_content)
+
                     structured_data = {
                         "id": str(datetime.now().timestamp()),
                         "main_heading": "Diagnostic Analysis Results",

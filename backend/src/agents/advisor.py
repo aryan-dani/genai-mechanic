@@ -109,8 +109,16 @@
 
 import os
 import json
+import re
+
+# Fix gRPC DNS + SSL issues on macOS Python 3.13
+import certifi
+os.environ.setdefault('GRPC_DNS_RESOLVER', 'native')
+os.environ.setdefault('SSL_CERT_FILE', certifi.where())
+os.environ.setdefault('GRPC_DEFAULT_SSL_ROOTS_FILE_PATH', certifi.where())
 from dotenv import load_dotenv
 from typing import List, Dict, Any, Annotated
+from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -142,8 +150,7 @@ class TerminalLogger:
     def tool_result(tool_name: str, result: str):
         print(f"\n📦 [TOOL OUTPUT: {tool_name}]")
         print(f"{'-'*50}")
-        # Show first 800 chars in a clean block
-        print(result[:800] + "..." if len(result) > 800 else result)
+        print(str(result)[:800] + "..." if len(str(result)) > 800 else result)
         print(f"{'-'*50}\n")
 
 # ==========================================
@@ -153,7 +160,10 @@ class DiagnosticResponse(BaseModel):
     needs_more_info: bool
     clarifying_questions: List[str]
     diagnosis: str
-    confidence_level: str
+    confidence_level: str = Field(description="Overall confidence as a label: High, Medium, or Low.")
+    confidence_score: int = Field(description="Overall confidence as an integer percentage 0-100, e.g. 87.")
+    rag_score: int = Field(description="Integer 0-100 reflecting how well the RAG knowledge base matched this case.")
+    ml_score: int = Field(description="Integer 0-100 reflecting the ML classifier confidence for the predicted root cause.")
     ml_evidence: str
     rag_evidence: str
     web_evidence: str
@@ -162,82 +172,149 @@ class DiagnosticResponse(BaseModel):
 
 parser = PydanticOutputParser(pydantic_object=DiagnosticResponse)
 
-class AgentState(BaseModel):
+class AgentState(TypedDict):
     messages: Annotated[List[BaseMessage], operator.add]
 
 # ==========================================
-# 3. NODES WITH ENHANCED LOGGING
+# 3. MULTI-AGENT NODES
 # ==========================================
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+llm = ChatGoogleGenerativeAI(
+    model="gemini-2.5-flash",
+    temperature=0.2,
+    google_api_key=os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
+)
 tools = [predict_root_cause, vehicle_diagnostic_db, vehicle_web_search]
 llm_with_tools = llm.bind_tools(tools)
+basic_tool_node = ToolNode(tools)
 
-def diagnostic_reasoner(state: AgentState):
-    TerminalLogger.header("Agent Reasoning")
+
+def planner_agent(state: AgentState):
+    TerminalLogger.header("Planner Agent (Router)")
+    planner_prompt = """You are the Lead Workshop Manager and Planner Agent.
+Your job is to read the user's initial vehicle complaint or telemetry data and formulate a concise Step-by-Step Plan for the Task Agent.
+Identify what tools (predict_root_cause, vehicle_diagnostic_db, vehicle_web_search) are needed. 
+If the user provides almost zero context (e.g. "my car is broken"), your plan should simply state: "PLAN: Request clarifying questions." 
+Keep your response short and action-oriented."""
     
-    agent_template = f"""You are a Master Diagnostic AI. You have access to tools that can predict root causes (predict_root_cause), search manuals (vehicle_diagnostic_db), and search the web (vehicle_web_search).
+    messages = [SystemMessage(content=planner_prompt)] + state['messages']
+    response = llm.invoke(messages)
+    TerminalLogger.info("Plan Formulation", response.content[:200].replace('\n', ' ') + "...")
+    return {"messages": [response]}
+
+
+def task_agent(state: AgentState):
+    TerminalLogger.header("Task Agent (Researcher)")
+    task_prompt = """You are the Diagnostic Task Agent.
+Review the Planner's step-by-step plan and EXECUTE it by calling the appropriate tools.
+1. predict_root_cause: Needs a JSON string with exact numeric values (e.g. {"CAR_MODEL": "Tata", "ENGINE_RPM": 1200, "VEHICLE_SPEED": 0, "ENGINE_LOAD": 40, "COOLANT_TEMP": 95, "DTC": "P0171"})
+2. vehicle_diagnostic_db: RAG manual lookup based on symptoms.
+3. vehicle_web_search: Used for real-time recalls, forums, TSBs.
+
+IMPORTANT: Do not invent missing parameters. Once you have called the tools mentioned in the plan, or if the plan says to request clarifying questions, do NOT continue analyzing. Just output 'RESEARCH COMPLETE'."""
     
-    CRITICAL INSTRUCTIONS:
-    1. If a tool returns an error (like "No module named X", "XGBoost Error", or any failure), DO NOT KEEP CALLING IT. 
-    2. If predict_root_cause fails, immediately fallback to your vehicle_diagnostic_db or vehicle_web_search tools or your own knowledge.
-    3. You must eventually output a final answer wrapped in the exact JSON schema requested below.
-    4. Format your final response ONLY as JSON:
-    {parser.get_format_instructions()}"""
-    
-    messages = [SystemMessage(content=agent_template)] + state.messages
+    messages = [SystemMessage(content=task_prompt)] + state['messages']
     response = llm_with_tools.invoke(messages)
     
     if response.tool_calls:
         for t in response.tool_calls:
-            TerminalLogger.info("Action", f"Calling tool '{t['name']}' with args {t['args']}")
+            TerminalLogger.info("Action Triggered", f"Delegating to tool: {t['name']}")
+    else:
+        TerminalLogger.info("Task Status", "Routing to Synthesizer Agent. (No further tools).")
+        
     return {"messages": [response]}
 
-def tool_logger_node(state: AgentState):
-    last_msg = state.messages[-1]
-    if isinstance(last_msg, ToolMessage):
-        # Find which tool was just run
-        tool_name = "Unknown Tool"
-        for msg in reversed(state.messages[:-1]):
-            if hasattr(msg, 'tool_calls') and msg.tool_calls:
-                tool_name = msg.tool_calls[0]['name']
-                break
-        TerminalLogger.tool_result(tool_name, last_msg.content)
-    return state
+
+def logging_tool_node(state: AgentState):
+    TerminalLogger.header("Tool Execution Node")
+    result = basic_tool_node.invoke(state)
+    
+    for msg in result.get('messages', []):
+        if isinstance(msg, ToolMessage):
+            name = getattr(msg, 'name', 'Tool')
+            TerminalLogger.tool_result(name, msg.content)
+            
+    return result
+
+
+def synthesizer_agent(state: AgentState):
+    TerminalLogger.header("Synthesizer Agent (Final Output)")
+    synth_prompt = f"""You are the Master Synthesizer Agent. Compile the Planner's initial strategy, the Task Agent's tool evidence, and user context into a final JSON technical report.
+
+SCORING RULES (Use the gathered evidence context):
+- From predict_root_cause -> extract "ml_score_hint", use as your integer ml_score (0-100).
+- From vehicle_diagnostic_db -> extract "RAG_SCORE_HINT", use as your integer rag_score (0-100) (Use 5 if no match).
+- confidence_score: (ml_score * 0.4) + (rag_score * 0.35) + web_quality.
+- confidence_level: 'High', 'Medium', or 'Low' based on confidence_score.
+
+If the planner suggested requesting clarifying info, set needs_more_info = true and provide the clarifying_questions.
+
+CRITICAL FORMATTING: Output ONLY this exact JSON object format. No markdown, no explanations outside JSON.
+{parser.get_format_instructions()}"""
+
+    messages = [SystemMessage(content=synth_prompt)] + state['messages']
+    response = llm.invoke(messages)
+    
+    print(f"\n[SYNTHESIZER output generated, length: {len(str(response.content))}]", flush=True)
+    msg_preview = str(response.content)[:500] + "..." if len(str(response.content)) > 500 else str(response.content)
+    print(msg_preview, flush=True)
+    
+    return {"messages": [response]}
 
 # ==========================================
-# 4. GRAPH CONSTRUCTION
+# 4. ARCHITECTURE GRAPH CONSTRUCTION
 # ==========================================
 workflow = StateGraph(AgentState)
-workflow.add_node("reasoner", diagnostic_reasoner)
-workflow.add_node("tools", ToolNode(tools))
-workflow.add_node("logger", tool_logger_node)
 
-workflow.add_edge(START, "reasoner")
-workflow.add_conditional_edges("reasoner", lambda x: "tools" if x.messages[-1].tool_calls else END)
-workflow.add_edge("tools", "logger")
-workflow.add_edge("logger", "reasoner")
+# Add all specialized nodes
+workflow.add_node("planner", planner_agent)
+workflow.add_node("task_agent", task_agent)
+workflow.add_node("tools", logging_tool_node)
+workflow.add_node("synthesizer", synthesizer_agent)
+
+# Map edge connections
+workflow.add_edge(START, "planner")
+workflow.add_edge("planner", "task_agent")
+
+def route_task_agent(state: AgentState):
+    last_msg = state['messages'][-1]
+    # Check if the final message has any tool calls attached
+    if hasattr(last_msg, "tool_calls") and last_msg.tool_calls:
+        return "tools"
+    return "synthesizer"
+
+workflow.add_conditional_edges("task_agent", route_task_agent)
+workflow.add_edge("tools", "task_agent")  # Return to Task Agent once tools run
+workflow.add_edge("synthesizer", END)
 
 langgraph_app = workflow.compile()
 
 # ==========================================
-# 5. WRAPPER (FINAL LOGGING)
+# 5. WRAPPER FOR API COMPATIBILITY
 # ==========================================
 class LegacyAgentExecutorWrapper:
     def invoke(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         TerminalLogger.header("New Session Initiated")
-        TerminalLogger.info("Input", inputs.get("input")[:100] + "...")
+        TerminalLogger.info("User Input", inputs.get("input", "")[:100] + "...")
         
-        result = langgraph_app.invoke({"messages": [HumanMessage(content=inputs.get("input", ""))]}, {"recursion_limit": 25})
-        
+        result = langgraph_app.invoke({"messages": [HumanMessage(content=inputs.get("input", ""))]})
         final_content = result["messages"][-1].content
-        TerminalLogger.header("Final Agent Verdict")
+        if isinstance(final_content, list):
+            final_content = " ".join([m.get("text", "") if isinstance(m, dict) else str(m) for m in final_content])
+
+        TerminalLogger.header("Final Synthesizer Verdict")
         try:
-            # Try to print pretty-printed JSON
-            parsed = json.loads(final_content.replace("```json", "").replace("```", "").strip())
-            print(json.dumps(parsed, indent=4))
-        except:
-            print(final_content)
-        print("="*50 + "\n")
+            # Use regex to find JSON payload safely
+            match = re.search(r'\{.*\}', final_content, re.DOTALL)
+            if match:
+                json_str = match.group(0)
+            else:
+                json_str = final_content.replace("```json", "").replace("```", "").strip()
+            parsed = json.loads(json_str)
+            print(json.dumps(parsed, indent=4), flush=True)
+        except Exception as e:
+            print(f"FAILED TO PARSE JSON: {e}", flush=True)
+            print("Raw Content:", final_content, flush=True)
+        print("="*50 + "\n", flush=True)
         
         return {"output": final_content}
     
