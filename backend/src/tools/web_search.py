@@ -68,13 +68,13 @@ import os
 import json
 from dotenv import load_dotenv
 from langchain.tools import tool
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain_tavily import TavilySearch
 
 # Load API keys FIRST
 load_dotenv()
 
 # Initialize Tavily with limited results to prevent freezing
-tavily_tool = TavilySearchResults(max_results=3)
+tavily_tool = TavilySearch(max_results=3)
 
 @tool
 def vehicle_web_search(query: str) -> str:

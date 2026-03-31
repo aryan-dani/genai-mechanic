@@ -1,7 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Command, Zap } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Command,
+  Zap,
+  ChevronRight,
+  BarChart2,
+} from "lucide-react";
 import DiagnosticResult from "./DiagnosticResult";
 import WorkflowTracker from "./WorkflowTracker";
+import tataLogo from "../assets/tata.png";
+import watermarkUrl from "../assets/OIP.webp";
 import "./DiagnosticChat.css";
 
 const DiagnosticChat = ({ sessionData }) => {
@@ -33,7 +43,8 @@ const DiagnosticChat = ({ sessionData }) => {
       { role: "user", type: "text", content: userText },
     ]);
     setIsProcessing(true);
-    setCurrentWorkflow({ activeNode: "START", history: [], isComplete: false });
+    let localWorkflow = { activeNode: "START", history: [], isComplete: false };
+    setCurrentWorkflow(localWorkflow);
 
     try {
       // 1. First, call triage API to see intent
@@ -103,30 +114,24 @@ const DiagnosticChat = ({ sessionData }) => {
               const data = JSON.parse(dataStr);
 
               if (data.type === "step" || data.type === "status") {
-                setCurrentWorkflow((prev) => {
-                  if (!prev) return prev;
-                  const updatedHistory = [...prev.history, data.node];
-                  // Deduplicate consecutive nodes if SSE fires twice
-                  const cleanHistory = updatedHistory.filter(
-                    (val, i, arr) => i === 0 || val !== arr[i - 1],
-                  );
-                  return {
-                    ...prev,
-                    activeNode: data.node,
-                    history: cleanHistory,
-                  };
-                });
-              } else if (data.type === "complete") {
-                setCurrentWorkflow((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        isComplete: true,
-                        duration: data.duration_ms,
-                        activeNode: "END",
-                      }
-                    : null,
+                const updatedHistory = [...localWorkflow.history, data.node];
+                const cleanHistory = updatedHistory.filter(
+                  (val, i, arr) => i === 0 || val !== arr[i - 1],
                 );
+                localWorkflow = {
+                  ...localWorkflow,
+                  activeNode: data.node,
+                  history: cleanHistory,
+                };
+                setCurrentWorkflow(localWorkflow);
+              } else if (data.type === "complete") {
+                localWorkflow = {
+                  ...localWorkflow,
+                  isComplete: true,
+                  duration: data.duration_ms,
+                  activeNode: "END",
+                };
+                setCurrentWorkflow(null);
                 setMessages((prev) => [
                   ...prev,
                   {
@@ -134,25 +139,24 @@ const DiagnosticChat = ({ sessionData }) => {
                     type: "structured",
                     data: data.data,
                     duration: data.duration_ms,
+                    workflow: localWorkflow,
                   },
                 ]);
               } else if (data.type === "error") {
-                setCurrentWorkflow((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        isComplete: true,
-                        error: true,
-                        activeNode: null,
-                      }
-                    : null,
-                );
+                localWorkflow = {
+                  ...localWorkflow,
+                  isComplete: true,
+                  error: true,
+                  activeNode: null,
+                };
+                setCurrentWorkflow(null);
                 setMessages((prev) => [
                   ...prev,
                   {
                     role: "assistant",
                     type: "error",
                     content: data.message,
+                    workflow: localWorkflow,
                   },
                 ]);
               }
@@ -181,12 +185,84 @@ const DiagnosticChat = ({ sessionData }) => {
     <div className="chat-container glass-card">
       <div className="chat-history">
         {messages.length === 0 && (
-          <div className="empty-state">
-            <Zap size={48} className="empty-icon text-primary mb-4" />
-            <h2>System Ready</h2>
-            <p>
-              Describe the issue, provide DTCs, or upload telemetry to begin.
-            </p>
+          <div className="dashboard-container">
+            <div
+              className="dashboard-hero"
+              style={{
+                backgroundImage: `url(${watermarkUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundRepeat: "no-repeat",
+              }}
+            >
+              <div className="hero-overlay"></div>
+              <div className="hero-content">
+                <h1 className="hero-title">
+                  Smart Vehicle
+                  <br />
+                  Diagnostic
+                </h1>
+
+                <div className="hero-stats">
+                  <div className="stat-box">
+                    <span className="stat-label">RPM</span>
+                    <span className="stat-value">{sessionData.rpm || 0}</span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">SPEED</span>
+                    <span className="stat-value">
+                      {sessionData.speed || 0} <small>km/h</small>
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">LOAD</span>
+                    <span className="stat-value">
+                      {sessionData.load || 0} <small>%</small>
+                    </span>
+                  </div>
+                  <div className="stat-box">
+                    <span className="stat-label">TEMP</span>
+                    <span className="stat-value">
+                      {sessionData.temp || 0} <small>°C</small>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="dashboard-accordions">
+              <details className="dash-accordion">
+                <summary>
+                  <div className="acc-title">
+                    <Zap size={16} className="acc-icon" /> Test Agent Routing
+                    Scenarios (Mentor Examples)
+                  </div>
+                  <ChevronRight size={16} className="acc-arrow" />
+                </summary>
+                <div className="acc-content">
+                  <p>
+                    Try queries like: "Engine shaking and misfiring", "Error
+                    code P0171", etc.
+                  </p>
+                </div>
+              </details>
+
+              <details className="dash-accordion">
+                <summary>
+                  <div className="acc-title">
+                    <BarChart2 size={16} className="acc-icon" /> Platform
+                    Statistics
+                  </div>
+                  <ChevronRight size={16} className="acc-arrow" />
+                </summary>
+                <div className="acc-content">
+                  <p>
+                    System is operating normally. All diagnosis models are
+                    active.
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
         )}
 
@@ -202,12 +278,22 @@ const DiagnosticChat = ({ sessionData }) => {
             <div className="message-content">
               {msg.type === "text" && <p>{msg.content}</p>}
               {msg.type === "error" && (
-                <p className="text-danger font-semibold">
-                  Error: {msg.content}
-                </p>
+                <>
+                  {msg.workflow && <WorkflowTracker workflow={msg.workflow} />}
+                  <p className="text-danger font-semibold">
+                    Error: {msg.content}
+                  </p>
+                </>
               )}
               {msg.type === "structured" && (
-                <DiagnosticResult result={msg.data} duration={msg.duration} />
+                <>
+                  {msg.workflow && (
+                    <div className="workflow-wrapper-in-msg">
+                      <WorkflowTracker workflow={msg.workflow} />
+                    </div>
+                  )}
+                  <DiagnosticResult result={msg.data} duration={msg.duration} />
+                </>
               )}
             </div>
           </div>
@@ -226,24 +312,40 @@ const DiagnosticChat = ({ sessionData }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="chat-input-area">
-        <form onSubmit={handleSubmit} className="input-form">
-          <input
-            type="text"
-            className="chat-input"
-            placeholder="Type a diagnostic query (e.g., 'Engine shakes at idle, code P0300')..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            disabled={isProcessing}
-          />
-          <button
-            type="submit"
-            className="send-btn"
-            disabled={!inputValue.trim() || isProcessing}
-          >
-            <Send size={18} />
-          </button>
-        </form>
+      <div className="chat-footer">
+        <div className="powered-by">
+          <strong>Powered by Tata Technologies</strong>{" "}
+          <img
+            src={tataLogo}
+            alt="Tata.png"
+            style={{
+              height: "20px",
+              verticalAlign: "middle",
+              marginRight: "4px",
+              marginLeft: "4px",
+            }}
+          />{" "}
+          | Smart Vehicle Diagnostic Platform
+        </div>
+        <div className="chat-input-area">
+          <form onSubmit={handleSubmit} className="input-form">
+            <input
+              type="text"
+              className="chat-input"
+              placeholder="Enter diagnostic query or request procedure..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              disabled={isProcessing}
+            />
+            <button
+              type="submit"
+              className="send-btn primary-btn"
+              disabled={!inputValue.trim() || isProcessing}
+            >
+              <Send size={18} />
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

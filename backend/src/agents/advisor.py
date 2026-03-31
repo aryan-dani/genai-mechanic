@@ -266,14 +266,20 @@ CRITICAL FORMATTING: Output ONLY this exact JSON object format. No markdown, no 
 workflow = StateGraph(AgentState)
 
 # Add all specialized nodes
+def router_node(state: AgentState):
+    TerminalLogger.header("Router Node (Decision)")
+    return {"messages": []}
+
 workflow.add_node("planner", planner_agent)
 workflow.add_node("task_agent", task_agent)
+workflow.add_node("router", router_node) 
 workflow.add_node("tools", logging_tool_node)
 workflow.add_node("synthesizer", synthesizer_agent)
 
 # Map edge connections
 workflow.add_edge(START, "planner")
 workflow.add_edge("planner", "task_agent")
+workflow.add_edge("task_agent", "router")
 
 def route_task_agent(state: AgentState):
     last_msg = state['messages'][-1]
@@ -282,7 +288,7 @@ def route_task_agent(state: AgentState):
         return "tools"
     return "synthesizer"
 
-workflow.add_conditional_edges("task_agent", route_task_agent)
+workflow.add_conditional_edges("router", route_task_agent)
 workflow.add_edge("tools", "task_agent")  # Return to Task Agent once tools run
 workflow.add_edge("synthesizer", END)
 
