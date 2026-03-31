@@ -21,6 +21,7 @@ const Sidebar = ({ sessionData, setSessionData }) => {
     setSessionData({
       vehicleModel: "",
       symptoms: "",
+      operatingCondition: "",
       rpm: 0,
       speed: 0,
       load: 0,
@@ -85,6 +86,17 @@ const Sidebar = ({ sessionData, setSessionData }) => {
               value={sessionData.symptoms}
               onChange={handleChange}
             ></textarea>
+          </div>
+          <div className="input-group">
+            <label className="label">Operating Condition</label>
+            <input
+              type="text"
+              name="operatingCondition"
+              className="input-field"
+              placeholder="e.g., Engine idle, driving"
+              value={sessionData.operatingCondition || ""}
+              onChange={handleChange}
+            />
           </div>
         </div>
       </details>

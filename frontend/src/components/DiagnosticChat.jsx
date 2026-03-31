@@ -88,6 +88,7 @@ const DiagnosticChat = ({ sessionData }) => {
           vehicle_model: sessionData.vehicleModel,
           dtc_codes: sessionData.dtc,
           symptoms: sessionData.symptoms,
+          operating_condition: sessionData.operatingCondition,
           rpm: sessionData.rpm,
           speed: sessionData.speed,
           load: sessionData.load,

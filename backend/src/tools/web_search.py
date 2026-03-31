@@ -90,9 +90,17 @@ def vehicle_web_search(query: str) -> str:
         if isinstance(results, str):
             return results
 
+        # Access the actual results array if it's a dictionary
+        if isinstance(results, dict) and "results" in results:
+            actual_results = results["results"]
+        elif isinstance(results, list):
+            actual_results = results
+        else:
+            actual_results = []
+
         # Truncate each result to prevent agent memory overload
         clean_results = []
-        for res in results:
+        for res in actual_results:
             if isinstance(res, dict):
                 clean_results.append({
                     "url": res.get("url", ""),
