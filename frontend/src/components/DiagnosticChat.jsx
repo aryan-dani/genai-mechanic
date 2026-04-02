@@ -14,7 +14,7 @@ import tataLogo from "../assets/tata.png";
 import watermarkUrl from "../assets/OIP.webp";
 import "./DiagnosticChat.css";
 
-const DiagnosticChat = ({ sessionData }) => {
+const DiagnosticChat = ({ sessionData, updateStats }) => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -74,6 +74,9 @@ const DiagnosticChat = ({ sessionData }) => {
             content: triageData.response,
           },
         ]);
+        if (updateStats) {
+          updateStats((prev) => ({ messageCount: (prev?.messageCount || 0) + 2 }));
+        }
         setIsProcessing(false);
         setCurrentWorkflow(null);
         return;
@@ -131,18 +134,30 @@ const DiagnosticChat = ({ sessionData }) => {
                   isComplete: true,
                   duration: data.duration_ms,
                   activeNode: "END",
+                  // Carry decision_path and wf_history from the backend payload
+                  decisions: data.data?.decision_path || [],
+                  wfHistory: data.data?.wf_history || localWorkflow.history,
                 };
                 setCurrentWorkflow(null);
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    role: "assistant",
-                    type: "structured",
-                    data: data.data,
-                    duration: data.duration_ms,
-                    workflow: localWorkflow,
-                  },
-                ]);
+                setMessages((prev) => {
+                  const next = [
+                    ...prev,
+                    {
+                      role: "assistant",
+                      type: "structured",
+                      data: data.data,
+                      duration: data.duration_ms,
+                      workflow: localWorkflow,
+                    },
+                  ];
+                  if (updateStats) {
+                    updateStats({
+                      messageCount: next.length,
+                      lastLatencyMs: Math.round(data.duration_ms || 0),
+                    });
+                  }
+                  return next;
+                });
               } else if (data.type === "error") {
                 localWorkflow = {
                   ...localWorkflow,

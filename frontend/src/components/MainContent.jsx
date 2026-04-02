@@ -3,7 +3,7 @@ import { MoreHorizontal } from "lucide-react";
 import DiagnosticChat from "./DiagnosticChat";
 import "./MainContent.css";
 
-const MainContent = ({ sessionData }) => {
+const MainContent = ({ sessionData, updateStats }) => {
   return (
     <div className="main-content">
       <div className="top-nav">
@@ -17,7 +17,7 @@ const MainContent = ({ sessionData }) => {
       </div>
 
       <div className="workspace">
-        <DiagnosticChat sessionData={sessionData} />
+        <DiagnosticChat sessionData={sessionData} updateStats={updateStats} />
       </div>
     </div>
   );

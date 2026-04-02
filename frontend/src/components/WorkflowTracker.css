@@ -113,3 +113,40 @@
     transform: translateY(0);
   }
 }
+
+/* Decision Log (shown when workflow is complete) */
+.wf-decision-log {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wf-decision-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 0.73rem;
+  font-family: 'Courier New', Courier, monospace;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.wf-decision-icon {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  margin-top: 1px;
+}
+
+.wf-decision-text {
+  color: #334155;
+}
+
+.wf-decision-text strong {
+  color: #001F5B;
+  font-weight: 700;
+}
+

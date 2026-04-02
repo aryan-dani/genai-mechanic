@@ -74,6 +74,61 @@
   margin-bottom: 0;
 }
 
+/* ── Session Stats ── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.stats-item {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.session-id-item {
+  grid-column: span 2;
+}
+
+.stats-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.2;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.stats-value small {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stats-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-top: 4px;
+}
+
+.mono {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.85rem !important;
+  letter-spacing: 1px;
+}
+
+/* ── Sensor Read-only Tiles ── */
 .sensor-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -115,6 +170,22 @@
   letter-spacing: 0.05em;
 }
 
+/* ── Editable Sensor Inputs ── */
+.sensor-inputs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.sensor-input-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sensor-input-group .label {
+  font-size: 0.65rem;
+}
+
 .sidebar-footer {
   margin-top: auto;
   padding: 16px 20px;
@@ -124,6 +195,13 @@
 
 .w-full {
   width: 100%;
+}
+
+.reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
 }
 
 @media (max-width: 768px) {
